@@ -1,0 +1,36 @@
+{
+  "name": "long-running-pubsub",
+  "version": "1.0.0",
+  "description": "A Google Cloud Pub/Sub client with better support for long running tasks.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matthewpalmer/long-running-pubsub.git"
+  },
+  "keywords": [
+    "google",
+    "cloud",
+    "pub",
+    "sub",
+    "pubsub",
+    "long",
+    "running",
+    "job",
+    "queue",
+    "task"
+  ],
+  "author": "Matthew Palmer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/matthewpalmer/long-running-pubsub/issues"
+  },
+  "homepage": "https://github.com/matthewpalmer/long-running-pubsub#readme",
+  "dependencies": {
+    "googleapis": "^27.0.0",
+    "request": "^2.83.0",
+    "request-promise-native": "^1.0.5"
+  }
+}
