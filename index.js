@@ -136,6 +136,30 @@ class Client {
     return this.acknowledge(subscription, [ackId]);
   }
 
+  // Control flow util function for long running tasks
+  longRunningJobPoll(subscription, workFn, {
+    emptyQueuePollDelay = 30000,
+    extendBy,
+    withPeriod
+  }) {
+    const tick = () => {
+      this.pullLongRunningJob(subscription, { extendBy, withPeriod })
+        .then(async payload => {
+          if (!payload) {
+            setTimeout(tick, emptyQueuePollDelay);
+            return;
+          }
+
+          await workFn(payload);
+          await this.acknowledgeLongRunningJob(subscription, payload.ackId);
+
+          tick();
+        })
+    };
+
+    tick();
+  }
+
   // PUBLISHER
 
   formatTopic(topic) {
