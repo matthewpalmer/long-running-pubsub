@@ -13,12 +13,27 @@ class Client {
   constructor(opts) {
     this.BASE_URL = 'https://pubsub.googleapis.com/v1';
     this.project = opts.project;
-    this.longRunningJobs = {};
+    this.longRunningJobTimers = {};
+    this.log = opts.log || (() => {}); // Pass console.log to enable debug logging
   }
 
   async addAuthentication(headers) {
     return new Promise((resolve, reject) => {
       google.auth.getApplicationDefault((err, authClient) => {
+        if (err) {
+          console.error('Failed to get the default credentials');
+          return reject(err);
+        }
+
+        // True when running on App Engine or locally.
+        // False when Compute Engine or Managed VM.
+        if (authClient.createScopedRequired && authClient.createScopedRequired()) {
+          authClient = authClient.createScoped([
+            'https://www.googleapis.com/auth/cloud-platform',
+            'https://www.googleapis.com/auth/pubsub'
+          ]);
+        }
+
         authClient.getAccessToken((err, accessToken) => {
           const authHeader = `Bearer ${accessToken}`;
           headers['Authorization'] = authHeader;
@@ -43,10 +58,15 @@ class Client {
 
     const body = { returnImmediately, maxMessages };
     const req = { uri, headers, body, method: 'POST', json: true };
+
+    this.log(`${subscription} pull ${JSON.stringify(req)}`);
+
     return request(req);
   }
 
   async modifyAckDeadline(subscription, ackIds, ackDeadline) {
+    this.log(`${subscription} ${ackIds} modify ack deadline by ${ackDeadline}`);
+
     const uri = `${this.BASE_URL}/${this.formatSubscription(subscription)}:modifyAckDeadline`;
     const headers = {};
 
@@ -62,6 +82,8 @@ class Client {
   }
 
   async acknowledge(subscription, ackIds) {
+    this.log(`${subscription} ${ackIds} acknowledge`);
+
     const uri = `${this.BASE_URL}/${this.formatSubscription(subscription)}:acknowledge`;
     const headers = {};
 
@@ -79,20 +101,25 @@ class Client {
   // if needed.
   async pullLongRunningJob(subscription, { extendBy = 10000, withPeriod = 10000 } = {}) {
     return this.pull(subscription, { returnImmediately: true, maxMessages: 1 })
-      .then(async payload => {
-        if (!results || !results.receivedMessages) return;
+      .then(async results => {
+        this.log(`${subscription} received results ${JSON.stringify(results)}`);
 
+        if (!results || !results.receivedMessages) return;
         results = results.receivedMessages;
 
         if (!results || !results[0]) return;
-
         const payload = results[0];
 
+        this.log(`${subscription} ${payload.ackId} long running job starting`);
+
         this.longRunningJobTimers[payload.ackId] = setInterval(() => {
+          this.log(`${subscription} ${payload.ackId} long running job loop`);
           this.modifyAckDeadline(subscription, [payload.ackId], extendBy);
         }, withPeriod);
 
         await this.modifyAckDeadline(subscription, [payload.ackId], extendBy);
+
+        payload.message.data = Buffer.from(payload.message.data, 'base64').toString('ascii');
 
         return payload;
       });
@@ -100,6 +127,8 @@ class Client {
 
   async acknowledgeLongRunningJob(subscription, ackId) {
     if (this.longRunningJobTimers[ackId]) {
+      this.log(`${subscription} ${ackId} long running job stopping`);
+
       clearInterval(this.longRunningJobTimers[ackId]);
       delete this.longRunningJobTimers[ackId]
     }
