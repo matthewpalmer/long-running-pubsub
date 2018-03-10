@@ -17,14 +17,15 @@ const PubSub = require('long-running-pubsub');
 
 const client = new PubSub({
   project: PROJECT_ID,
-  // log: console.log // Optionally provide a logging function for debugging
+  // Optionally provide a logging function for debugging
+  // log: console.log
 });
 
 // Get messages corresponding to a long running job that you're going to start
 const job = client.pullLongRunningJob(SUBSCRIPTION, {
-  // How long to extend the message's `ackDeadline` by.
+  // How long to defer the ackDeadline
   extendBy: 15000,
-  // How often to extend the `ackDeadline`.
+  // How often to do this deferring
   withPeriod: 10000
 });
 
@@ -36,12 +37,13 @@ job.then(payload => {
 
   // Simulate a long running job that takes two minutes
   console.log(`Starting a long running job...`);
+
   setTimeout(() => {
-    // The job's done. The library managed the `ackDeadline` during this time
-    // to reduce duplicate notifications (though they  can't be 100% eliminated).
+    // The job's done. The library managed the ackDeadline during this time
+    // to reduce duplicate notifications (though they  can't be 100% eliminated)
     console.log(`Job done.`);
 
-    // Acknowledge the job is finished.
+    // Acknowledge the job is finished
     client.acknowledgeLongRunningJob(SUBSCRIPTION, payload.ackId)
       .then(() => {
         console.log(`Job status acknowledged`);
@@ -55,7 +57,7 @@ job.then(payload => {
 This client exposes an interface that closely resembles the REST API so that you have
 fine-grained manual control over pull, publish, and acknowledgement deadline management.
 
-```
+```js
 class Client {
   // Subscriber
   acknowledge(subscription, ackIds)
